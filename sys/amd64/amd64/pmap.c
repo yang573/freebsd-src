@@ -112,6 +112,7 @@ __FBSDID("$FreeBSD$");
 #include "opt_vm.h"
 
 #include <sys/param.h>
+#include <sys/asan.h>
 #include <sys/bitstring.h>
 #include <sys/bus.h>
 #include <sys/systm.h>
