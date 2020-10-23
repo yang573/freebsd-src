@@ -385,6 +385,12 @@ static u_int64_t	KPDphys;	/* phys addr of kernel level 2 */
 u_int64_t		KPDPphys;	/* phys addr of kernel level 3 */
 u_int64_t		KPML4phys;	/* phys addr of kernel level 4 */
 
+#ifdef KASAN
+static u_int64_t	KASANPTphys;	/* phys addr of kasan level 1 */
+static u_int64_t	KASANPDphys;	/* phys addr of kasan level 2 */
+static u_int64_t	KASANPDPphys;	/* phys addr of kasan level 3 */
+#endif
+
 static u_int64_t	DMPDphys;	/* phys addr of direct mapped level 2 */
 static u_int64_t	DMPDPphys;	/* phys addr of direct mapped level 3 */
 static int		ndmpdpphys;	/* number of DMPDPphys pages */
@@ -1424,13 +1430,22 @@ bootaddr_rwx(vm_paddr_t pa)
 	return (pg_nx);
 }
 
+void *memset_std(void *buf, int c, size_t len);
+
 static void
 create_pagetables(vm_paddr_t *firstaddr)
 {
 	int i, j, ndm1g, nkpdpe, nkdmpde;
+#ifdef KASAN
+	int nkasanpdp, nkasanpd, nkasanpt;
+#endif
 	pd_entry_t *pd_p;
 	pdp_entry_t *pdp_p;
 	pml4_entry_t *p4_p;
+#ifdef KASAN
+	pd_entry_t *kasan_pd_p;
+	pdp_entry_t *kasan_pdp_p;
+#endif
 	uint64_t DMPDkernphys;
 
 	/* Allocate page table pages for the direct map */
@@ -1488,6 +1503,18 @@ create_pagetables(vm_paddr_t *firstaddr)
 	KPTphys = allocpages(firstaddr, nkpt);
 	KPDphys = allocpages(firstaddr, nkpdpe);
 
+#ifdef KASAN
+	/* Create KASAN shadow map  */
+	nkasanpdp = NKASANPML4E; //PDP
+	/* Andrew: Should be enough for KVA */
+	nkasanpd = 256; //nkpdpe >> KASAN_SHADOW_SCALE_SHIFT; //PD
+	nkasanpt = (nkpt + 7) >> KASAN_SHADOW_SCALE_SHIFT; //PT
+
+	KASANPDPphys = allocpages(firstaddr, nkasanpdp);
+	KASANPDphys = allocpages(firstaddr, nkasanpd);
+	KASANPTphys = allocpages(firstaddr, nkasanpt);
+#endif
+
 	/*
 	 * Connect the zero-filled PT pages to their PD entries.  This
 	 * implicitly maps the PT pages at their correct locations within
@@ -1496,6 +1523,15 @@ create_pagetables(vm_paddr_t *firstaddr)
 	pd_p = (pd_entry_t *)KPDphys;
 	for (i = 0; i < nkpt; i++)
 		pd_p[i] = (KPTphys + ptoa(i)) | X86_PG_RW | X86_PG_V;
+
+#ifdef KASAN
+	/* same for KASAN */
+	kasan_pd_p = (pd_entry_t *)KASANPDphys;
+	for (i = 0; i < nkasanpt; i++)
+		kasan_pd_p[i + 0x1ff80] = (KASANPTphys + ptoa(i)) | X86_PG_RW | X86_PG_V;
+
+	memset_std((void *)KASANPTphys, 0, nkasanpt * PAGE_SIZE);
+#endif
 
 	/*
 	 * Map from physical address zero to the end of loader preallocated
@@ -1519,6 +1555,14 @@ create_pagetables(vm_paddr_t *firstaddr)
 	pdp_p = (pdp_entry_t *)(KPDPphys + ptoa(KPML4I - KPML4BASE));
 	for (i = 0; i < nkpdpe; i++)
 		pdp_p[i + KPDPI] = (KPDphys + ptoa(i)) | X86_PG_RW | X86_PG_V;
+
+#ifdef KASAN
+	/* same for KASAN */
+	/* Check if KPML4I - KPML4BASE should be changed. Also KPDPI */
+	kasan_pdp_p = (pdp_entry_t *)(KASANPDPphys);
+	for (i = 0; i < nkasanpd; i++)
+		kasan_pdp_p[i] = (KASANPDphys + ptoa(i)) | X86_PG_RW | X86_PG_V;
+#endif
 
 	/*
 	 * Now, set up the direct map region using 2MB and/or 1GB pages.  If
@@ -1579,6 +1623,12 @@ create_pagetables(vm_paddr_t *firstaddr)
 		p4_p[KPML4BASE + i] = KPDPphys + ptoa(i);
 		p4_p[KPML4BASE + i] |= X86_PG_RW | X86_PG_V;
 	}
+
+#ifdef KASAN
+	/* Connect KASAN slots up to PML4 */
+	p4_p[KASANPML4I] = KASANPDPphys;
+	p4_p[KASANPML4I] |= X86_PG_RW | X86_PG_V;
+#endif
 }
 
 /*
@@ -3448,6 +3498,10 @@ pmap_pinit_pml4(vm_page_t pml4pg)
 	/* install large map entries if configured */
 	for (i = 0; i < lm_ents; i++)
 		pm_pml4[LMSPML4I + i] = kernel_pmap->pm_pml4[LMSPML4I + i];
+
+#ifdef KASAN
+	pm_pml4[KASANPML4I] = KASANPDPphys | X86_PG_RW | X86_PG_V;
+#endif
 }
 
 static void
@@ -3800,6 +3854,10 @@ pmap_release(pmap_t pmap)
 	pmap->pm_pml4[PML4PML4I] = 0;	/* Recursive Mapping */
 	for (i = 0; i < lm_ents; i++)	/* Large Map */
 		pmap->pm_pml4[LMSPML4I + i] = 0;
+
+#ifdef KASAN
+	pmap->pm_pml4[KASANPML4I] = 0;	/* KASAN */
+#endif
 
 	vm_page_unwire_noq(m);
 	vm_page_free_zero(m);
