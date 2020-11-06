@@ -74,6 +74,52 @@ extern u_int64_t KASANPDphys;
 static inline void
 kasan_md_shadow_map_page(vm_offset_t va)
 {
+	vm_paddr_t paddr;
+	vm_page_t nkpg;
+	pd_entry_t *pde;
+	pt_entry_t *pte;
+	int idx;
+
+	idx = (va - KASAN_MIN_ADDRESS) >> PDRSHIFT;
+	pde = (pd_entry_t *)PHYS_TO_DMAP(KASANPDphys);
+	if (pde[idx] == 0) {
+		nkpg = vm_page_alloc(NULL, 0,
+			VM_ALLOC_INTERRUPT | VM_ALLOC_NOOBJ |
+			VM_ALLOC_WIRED | VM_ALLOC_ZERO);
+		if (nkpg == NULL)
+			panic("kasan_grow_shadow_map: "
+				"no memory to grow PD shadow map");
+		if ((nkpg->flags & PG_ZERO) == 0)
+			pmap_zero_page(nkpg);
+		paddr = VM_PAGE_TO_PHYS(nkpg);
+		pde[idx] = paddr | X86_PG_RW | X86_PG_V;
+	}
+
+	//printf("DEBUG: %s() pde: %p idx: %d pde[idx] 0x%lx\n", __func__, pde, idx, pde[idx]);
+
+	pte = (pt_entry_t *)PHYS_TO_DMAP(pde[idx] & PG_FRAME);
+	idx = pmap_pte_index(va);
+	//printf("DEBUG: %s() pte: %p idx: %d pte[idx] 0x%lx\n", __func__, pte, idx, pte[idx]);
+	if (pte[idx] != 0) {
+		printf("DEBUG: %s() pte: %p idx: %d pte[idx] 0x%lx\n", __func__, pte, idx, pte[idx]);
+		return;
+	}
+
+	nkpg = vm_page_alloc(NULL, 0,
+		VM_ALLOC_INTERRUPT | VM_ALLOC_NOOBJ | VM_ALLOC_WIRED |
+		VM_ALLOC_ZERO);
+	if (nkpg == NULL)
+		panic("kasan_md_shadow_map_page: "
+			"no memory to grow PT table shadow map");
+	if ((nkpg->flags & PG_ZERO) == 0)
+		pmap_zero_page(nkpg);
+	paddr = VM_PAGE_TO_PHYS(nkpg);
+	pte[idx] = paddr | X86_PG_RW | X86_PG_V | X86_PG_G;
+
+	//printf("DEBUG: %s() post-alloc pte: %p idx: %d pte[idx] %lx\n", __func__, pte, idx, pte[idx]);
+
+	__builtin_memset((void *)va, 0xFF, PAGE_SIZE);
+
 	return;
 }
 

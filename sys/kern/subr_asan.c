@@ -72,6 +72,31 @@ __FBSDID("$FreeBSD$");
 void
 kasan_shadow_map(void *addr, size_t size)
 {
+	size_t sz, npages, i;
+	vm_offset_t sva, eva; // start and end of VA
+
+	KASSERT((vm_offset_t)addr % KASAN_SHADOW_SCALE_SIZE == 0,
+			("kasan_shadow_map: Address %p is incorrectly aligned", addr));
+
+	sz = roundup(size, KASAN_SHADOW_SCALE_SIZE) / KASAN_SHADOW_SCALE_SIZE;
+
+	sva = (vm_offset_t)kasan_md_addr_to_shad(addr);
+	eva = (vm_offset_t)kasan_md_addr_to_shad(addr) + sz;
+
+	sva = rounddown(sva, PAGE_SIZE);
+	eva = rounddown(eva, PAGE_SIZE);
+
+	npages = (eva - sva) / PAGE_SIZE;
+
+	KASSERT(sva >= KASAN_MIN_ADDRESS,
+			("kasan_shadow_map: Start virtual address %jx is invalid", sva));
+	KASSERT(eva < KASAN_MAX_ADDRESS,
+			("kasan_shadow_map: End virtual address %jx is invalid", eva));
+
+	for (i = 0; i < npages; i++) {
+		kasan_md_shadow_map_page(sva + (i * PAGE_SIZE));
+	}
+
 	return;
 }
 
@@ -96,6 +121,14 @@ kasan_add_redzone(size_t *size)
 void
 kasan_mark(const void *addr, size_t size, size_t sz_with_redz, uint8_t code)
 {
+	int8_t *shadow;
+
+	/* XXX: Work around importing DMAP memory */
+	if (__predict_false(kasan_md_unsupported((vm_offset_t)addr)))
+		return;
+
+	shadow = kasan_md_addr_to_shad(addr);
+	*shadow = 8;
 	return;
 }
 

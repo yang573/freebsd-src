@@ -387,7 +387,7 @@ u_int64_t		KPML4phys;	/* phys addr of kernel level 4 */
 
 #ifdef KASAN
 static u_int64_t	KASANPTphys;	/* phys addr of kasan level 1 */
-static u_int64_t	KASANPDphys;	/* phys addr of kasan level 2 */
+u_int64_t			KASANPDphys;	/* phys addr of kasan level 2 */
 static u_int64_t	KASANPDPphys;	/* phys addr of kasan level 3 */
 #endif
 
@@ -3926,6 +3926,10 @@ pmap_growkernel(vm_offset_t addr)
 	addr = roundup2(addr, NBPDR);
 	if (addr - 1 >= vm_map_max(kernel_map))
 		addr = vm_map_max(kernel_map);
+#ifdef KASAN
+	if (kernel_vm_end < addr)
+		kasan_shadow_map((void*)kernel_vm_end, addr - kernel_vm_end);
+#endif
 	while (kernel_vm_end < addr) {
 		pdpe = pmap_pdpe(kernel_pmap, kernel_vm_end);
 		if ((*pdpe & X86_PG_V) == 0) {
