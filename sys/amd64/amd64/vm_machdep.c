@@ -357,6 +357,9 @@ cpu_thread_alloc(struct thread *td)
 	struct pcb *pcb;
 	struct xstate_hdr *xhdr;
 
+	kasan_mark((const void *)td->td_kstack, td->td_kstack_pages * PAGE_SIZE,
+		td->td_kstack_pages * PAGE_SIZE, 0);
+
 	td->td_pcb = pcb = get_pcb_td(td);
 	td->td_frame = (struct trapframe *)pcb - 1;
 	pcb->pcb_save = get_pcb_user_save_pcb(pcb);
@@ -372,6 +375,8 @@ cpu_thread_free(struct thread *td)
 {
 
 	cpu_thread_clean(td);
+	kasan_mark((const void *)td->td_kstack, 0,
+		td->td_kstack_pages * PAGE_SIZE, KASAN_POOL_FREED);
 }
 
 bool

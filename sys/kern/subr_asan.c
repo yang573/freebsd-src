@@ -127,6 +127,15 @@ kasan_add_redzone(size_t *size)
 	return;
 }
 
+/*
+ * In an area of size 'sz_with_redz', mark the 'size' first bytes as valid,
+ * and the rest as invalid. There are generally two use cases:
+ *
+ *  o kasan_mark(addr, origsize, size, code), with origsize < size. This marks
+ *    the redzone at the end of the buffer as invalid.
+ *
+ *  o kasan_mark(addr, size, size, 0). This marks the entire buffer as valid.
+ */
 void
 kasan_mark(const void *addr, size_t size, size_t sz_with_redz, uint8_t code)
 {

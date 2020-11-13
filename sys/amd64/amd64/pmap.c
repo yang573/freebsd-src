@@ -1230,7 +1230,7 @@ pmap_pml4e_to_pdpe(pml4_entry_t *pml4e, vm_offset_t va)
 }
 
 /* Return a pointer to the PDP slot that corresponds to a VA */
-static __inline pdp_entry_t *
+__inline pdp_entry_t *
 pmap_pdpe(pmap_t pmap, vm_offset_t va)
 {
 	pml4_entry_t *pml4e;
@@ -7930,6 +7930,9 @@ pmap_mapdev_internal(vm_paddr_t pa, vm_size_t size, int mode, int flags)
 	pmap_invalidate_range(kernel_pmap, va, va + tmpsize);
 	if ((flags & MAPDEV_FLUSHCACHE) != 0)
 		pmap_invalidate_cache_range(va, va + tmpsize);
+
+	kasan_mark((const void *)(va + offset), size, size, 0);
+
 	return ((void *)(va + offset));
 }
 
