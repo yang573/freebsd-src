@@ -1298,6 +1298,9 @@ aio_qbio(struct proc *p, struct kaiocb *job)
 	if (pbuf != NULL) {
 		pmap_qenter((vm_offset_t)pbuf->b_data,
 		    job->pages, job->npages);
+		/* XXX: Could we tighten this size? */
+		kasan_mark(pbuf->b_data, job->npages * PAGE_SIZE,
+			job->npages * PAGE_SIZE, 0);
 		bp->bio_data = pbuf->b_data + poff;
 		atomic_add_int(&num_buf_aio, 1);
 	} else {

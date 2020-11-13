@@ -120,6 +120,7 @@ shared_page_init(void *dummy __unused)
 	VM_OBJECT_WUNLOCK(shared_page_obj);
 	addr = kva_alloc(PAGE_SIZE);
 	pmap_qenter(addr, &m, 1);
+	kasan_mark((const void *)addr, PAGE_SIZE, PAGE_SIZE, 0);
 	shared_page_mapping = (char *)addr;
 }
 

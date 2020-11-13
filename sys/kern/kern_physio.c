@@ -183,6 +183,8 @@ physio(struct cdev *dev, struct uio *uio, int ioflag)
 				if (pbuf && sa) {
 					pmap_qenter((vm_offset_t)sa,
 					    pages, npages);
+					/* XXX: Could we tighten this size? */
+					kasan_mark(sa, npages * PAGE_SIZE, npages * PAGE_SIZE, 0);
 					bp->bio_data = sa + poff;
 				} else {
 					bp->bio_ma = pages;

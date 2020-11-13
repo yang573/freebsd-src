@@ -67,6 +67,8 @@ __FBSDID("$FreeBSD$");
 
 #define __RET_ADDR	(unsigned long)__builtin_return_address(0)
 
+static bool kasan_enabled __read_mostly = false;
+
 /* -------------------------------------------------------------------------- */
 
 void
@@ -109,6 +111,13 @@ kasan_early_init(void *stack)
 void
 kasan_init(void)
 {
+	/* MD initialization */
+	/* XXX: Currently a no-op */
+	kasan_md_init();
+
+	/* Officially enabled */
+	kasan_enabled = true;
+
 	return;
 }
 
@@ -121,14 +130,36 @@ kasan_add_redzone(size_t *size)
 void
 kasan_mark(const void *addr, size_t size, size_t sz_with_redz, uint8_t code)
 {
-	int8_t *shadow;
+	size_t i, n, redz;
+	int8_t *shad;
 
 	/* XXX: Work around importing DMAP memory */
 	if (__predict_false(kasan_md_unsupported((vm_offset_t)addr)))
 		return;
 
-	shadow = kasan_md_addr_to_shad(addr);
-	*shadow = 8;
-	return;
+	KASSERT((vm_offset_t)addr % KASAN_SHADOW_SCALE_SIZE == 0,
+			("kasan_mark: Address %p is incorrectly aligned", addr));
+	redz = sz_with_redz - roundup(size, KASAN_SHADOW_SCALE_SIZE);
+	KASSERT(redz % KASAN_SHADOW_SCALE_SIZE == 0,
+			("kasan_mark: Redzone size (%zx) must be a multiple of %ld", redz,
+			 KASAN_SHADOW_SCALE_SIZE));
+	shad = kasan_md_addr_to_shad(addr);
+
+	/* Chunks of 8 bytes, valid. */
+	n = size / KASAN_SHADOW_SCALE_SIZE;
+	for (i = 0; i < n; i++) {
+		*shad++ = 0;
+	}
+
+	/* Possibly one chunk, mid. */
+	if ((size & KASAN_SHADOW_MASK) != 0) {
+		*shad++ = (size & KASAN_SHADOW_MASK);
+	}
+
+	/* Chunks of 8 bytes, invalid. */
+	n = redz / KASAN_SHADOW_SCALE_SIZE;
+	for (i = 0; i < n; i++) {
+		*shad++ = code;
+	}
 }
 
