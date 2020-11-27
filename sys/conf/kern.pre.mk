@@ -117,6 +117,13 @@ PROF=		-pg
 .endif
 DEFINED_PROF=	${PROF}
 
+KASAN_ENABLED!=		grep KASAN opt_sanitizer.h || true ; echo
+.if !empty(KASAN_ENABLED)
+SAN_CFLAGS+=	-fsanitize=kernel-address -mllvm -asan-stack=false #-asan-instrumentation-with-call-threshold=0
+.endif
+
+CFLAGS+=	${SAN_CFLAGS}
+
 # Put configuration-specific C flags last (except for ${PROF}) so that they
 # can override the others.
 CFLAGS+=	${CONF_CFLAGS}
