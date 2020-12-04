@@ -2713,6 +2713,34 @@ outb_(u_short port, u_char data)
 
 void	*memset_std(void *buf, int c, size_t len);
 void	*memset_erms(void *buf, int c, size_t len);
+void    *memmove_std(void * _Nonnull dst, const void * _Nonnull src,
+	    size_t len);
+void    *memmove_erms(void * _Nonnull dst, const void * _Nonnull src,
+	    size_t len);
+void    *memcpy_std(void * _Nonnull dst, const void * _Nonnull src,
+	    size_t len);
+void    *memcpy_erms(void * _Nonnull dst, const void * _Nonnull src,
+	    size_t len);
+
+#ifdef KASAN
+void *
+memset(void *buf, int c, size_t len)
+{
+	return (memset_std(buf, c, len));
+}
+
+void *
+memmove(void *dst, const void *src, size_t len)
+{
+	return (memmove_std(dst, src, len));
+}
+
+void *
+memcpy(void *dst, const void *src, size_t len)
+{
+	return (memcpy_std(dst, src, len));
+}
+#else
 DEFINE_IFUNC(, void *, memset, (void *, int, size_t), static)
 {
 
@@ -2720,10 +2748,7 @@ DEFINE_IFUNC(, void *, memset, (void *, int, size_t), static)
 	    memset_erms : memset_std);
 }
 
-void    *memmove_std(void * _Nonnull dst, const void * _Nonnull src,
-	    size_t len);
-void    *memmove_erms(void * _Nonnull dst, const void * _Nonnull src,
-	    size_t len);
+
 DEFINE_IFUNC(, void *, memmove, (void * _Nonnull, const void * _Nonnull,
     size_t), static)
 {
@@ -2732,10 +2757,6 @@ DEFINE_IFUNC(, void *, memmove, (void * _Nonnull, const void * _Nonnull,
 	    memmove_erms : memmove_std);
 }
 
-void    *memcpy_std(void * _Nonnull dst, const void * _Nonnull src,
-	    size_t len);
-void    *memcpy_erms(void * _Nonnull dst, const void * _Nonnull src,
-	    size_t len);
 DEFINE_IFUNC(, void *, memcpy, (void * _Nonnull, const void * _Nonnull,size_t),
     static)
 {
@@ -2743,6 +2764,7 @@ DEFINE_IFUNC(, void *, memcpy, (void * _Nonnull, const void * _Nonnull,size_t),
 	return ((cpu_stdext_feature & CPUID_STDEXT_ERMS) != 0 ?
 	    memcpy_erms : memcpy_std);
 }
+#endif
 
 void	pagezero_std(void *addr);
 void	pagezero_erms(void *addr);
