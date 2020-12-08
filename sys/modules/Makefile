@@ -23,7 +23,6 @@ SUBDIR=	\
 	acl_posix1e \
 	${_acpi} \
 	ae \
-	${_aesni} \
 	age \
 	${_agp} \
 	aha \

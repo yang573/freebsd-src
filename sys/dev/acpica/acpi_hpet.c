@@ -135,7 +135,7 @@ static void hpet_test(struct hpet_softc *sc);
 static char *hpet_ids[] = { "PNP0103", NULL };
 
 /* Knob to disable acpi_hpet device */
-bool acpi_hpet_disabled = false;
+bool acpi_hpet_disabled = true;
 
 static u_int
 hpet_get_timecount(struct timecounter *tc)

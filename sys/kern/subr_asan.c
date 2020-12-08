@@ -174,62 +174,31 @@ static void
 kasan_report(unsigned long addr, size_t size, bool write, unsigned long pc,
     uint8_t code)
 {
-	REPORT("ASan: Unauthorized Access In %p: Addr %p [%zu byte%s, %s,"
-	    " %s]\n",
-	    (void *)pc, (void *)addr, size, (size > 1 ? "s" : ""),
-	    (write ? "write" : "read"), kasan_code_name(code));
-#ifdef notyet
-	kasan_md_unwind();
-#endif
+	return;
 }
 
 static __always_inline void
 kasan_shadow_1byte_markvalid(unsigned long addr)
 {
-	int8_t *byte = kasan_md_addr_to_shad((void *)addr);
-	int8_t last = (addr & KASAN_SHADOW_MASK) + 1;
-
-	*byte = last;
+	return;
 }
 
 static __always_inline void
 kasan_shadow_Nbyte_markvalid(const void *addr, size_t size)
 {
-	size_t i;
-
-	for (i = 0; i < size; i++) {
-		kasan_shadow_1byte_markvalid((unsigned long)addr+i);
-	}
+	return;
 }
 
 static __always_inline void
 kasan_shadow_Nbyte_fill(const void *addr, size_t size, uint8_t code)
 {
-	void *shad;
-
-	if (__predict_false(size == 0))
-		return;
-	if (__predict_false(kasan_md_unsupported((vm_offset_t)addr)))
-		return;
-
-	KASSERT((vm_offset_t)addr % KASAN_SHADOW_SCALE_SIZE == 0,
-	    ("kasan_shadow_Nbyte_fill: Address %p is incorrectly aligned",
-	    addr));
-	KASSERT(size % KASAN_SHADOW_SCALE_SIZE == 0,
-	    ("kasan_shadow_Nbyte_fill: Size (%zx) must be a multiple of %ld",
-	    size, KASAN_SHADOW_SCALE_SIZE));
-
-	shad = (void *)kasan_md_addr_to_shad(addr);
-	size = size >> KASAN_SHADOW_SCALE_SHIFT;
-
-	__builtin_memset(shad, code, size);
+	return;
 }
 
 void
 kasan_add_redzone(size_t *size)
 {
-	*size = roundup(*size, KASAN_SHADOW_SCALE_SIZE);
-	*size += KASAN_SHADOW_SCALE_SIZE;
+	return;
 }
 
 /*
@@ -244,37 +213,7 @@ kasan_add_redzone(size_t *size)
 void
 kasan_mark(const void *addr, size_t size, size_t sz_with_redz, uint8_t code)
 {
-	size_t i, n, redz;
-	int8_t *shad;
-
-	/* XXX: Work around importing DMAP memory */
-	if (__predict_false(kasan_md_unsupported((vm_offset_t)addr)))
-		return;
-
-	KASSERT((vm_offset_t)addr % KASAN_SHADOW_SCALE_SIZE == 0,
-			("kasan_mark: Address %p is incorrectly aligned", addr));
-	redz = sz_with_redz - roundup(size, KASAN_SHADOW_SCALE_SIZE);
-	KASSERT(redz % KASAN_SHADOW_SCALE_SIZE == 0,
-			("kasan_mark: Redzone size (%zx) must be a multiple of %ld", redz,
-			 KASAN_SHADOW_SCALE_SIZE));
-	shad = kasan_md_addr_to_shad(addr);
-
-	/* Chunks of 8 bytes, valid. */
-	n = size / KASAN_SHADOW_SCALE_SIZE;
-	for (i = 0; i < n; i++) {
-		*shad++ = 0;
-	}
-
-	/* Possibly one chunk, mid. */
-	if ((size & KASAN_SHADOW_MASK) != 0) {
-		*shad++ = (size & KASAN_SHADOW_MASK);
-	}
-
-	/* Chunks of 8 bytes, invalid. */
-	n = redz / KASAN_SHADOW_SCALE_SIZE;
-	for (i = 0; i < n; i++) {
-		*shad++ = code;
-	}
+	return;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -287,86 +226,30 @@ kasan_mark(const void *addr, size_t size, size_t sz_with_redz, uint8_t code)
 static __always_inline bool
 kasan_shadow_1byte_isvalid(unsigned long addr, uint8_t *code)
 {
-	int8_t *byte = kasan_md_addr_to_shad((void *)addr);
-	int8_t last = (addr & KASAN_SHADOW_MASK) + 1;
-
-	if (__predict_true(*byte == 0 || last <= *byte)) {
-		return true;
-	}
-	*code = *byte;
-	return false;
+	return true;
 }
 
 static __always_inline bool
 kasan_shadow_2byte_isvalid(unsigned long addr, uint8_t *code)
 {
-	int8_t *byte, last;
-
-	if (ADDR_CROSSES_SCALE_BOUNDARY(addr, 2)) {
-		return (kasan_shadow_1byte_isvalid(addr, code) &&
-		    kasan_shadow_1byte_isvalid(addr+1, code));
-	}
-
-	byte = kasan_md_addr_to_shad((void *)addr);
-	last = ((addr + 1) & KASAN_SHADOW_MASK) + 1;
-
-	if (__predict_true(*byte == 0 || last <= *byte)) {
-		return true;
-	}
-	*code = *byte;
-	return false;
+	return true;
 }
 
 static __always_inline bool
 kasan_shadow_4byte_isvalid(unsigned long addr, uint8_t *code)
 {
-	int8_t *byte, last;
-
-	if (ADDR_CROSSES_SCALE_BOUNDARY(addr, 4)) {
-		return (kasan_shadow_2byte_isvalid(addr, code) &&
-		    kasan_shadow_2byte_isvalid(addr+2, code));
-	}
-
-	byte = kasan_md_addr_to_shad((void *)addr);
-	last = ((addr + 3) & KASAN_SHADOW_MASK) + 1;
-
-	if (__predict_true(*byte == 0 || last <= *byte)) {
-		return true;
-	}
-	*code = *byte;
-	return false;
+	return true;
 }
 
 static __always_inline bool
 kasan_shadow_8byte_isvalid(unsigned long addr, uint8_t *code)
 {
-	int8_t *byte, last;
-
-	if (ADDR_CROSSES_SCALE_BOUNDARY(addr, 8)) {
-		return (kasan_shadow_4byte_isvalid(addr, code) &&
-		    kasan_shadow_4byte_isvalid(addr+4, code));
-	}
-
-	byte = kasan_md_addr_to_shad((void *)addr);
-	last = ((addr + 7) & KASAN_SHADOW_MASK) + 1;
-
-	if (__predict_true(*byte == 0 || last <= *byte)) {
-		return true;
-	}
-	*code = *byte;
-	return false;
+	return true;
 }
 
 static __always_inline bool
 kasan_shadow_Nbyte_isvalid(unsigned long addr, size_t size, uint8_t *code)
 {
-	size_t i;
-
-	for (i = 0; i < size; i++) {
-		if (!kasan_shadow_1byte_isvalid(addr+i, code))
-			return false;
-	}
-
 	return true;
 }
 
@@ -374,172 +257,8 @@ static __always_inline void
 kasan_shadow_check(unsigned long addr, size_t size, bool write,
     unsigned long retaddr)
 {
-	uint8_t code;
-	bool valid;
-
-	if (__predict_false(!kasan_enabled))
-		return;
-	if (__predict_false(size == 0))
-		return;
-	if (__predict_false(kasan_md_unsupported(addr)))
-		return;
-
-	if (__builtin_constant_p(size)) {
-		switch (size) {
-		case 1:
-			valid = kasan_shadow_1byte_isvalid(addr, &code);
-			break;
-		case 2:
-			valid = kasan_shadow_2byte_isvalid(addr, &code);
-			break;
-		case 4:
-			valid = kasan_shadow_4byte_isvalid(addr, &code);
-			break;
-		case 8:
-			valid = kasan_shadow_8byte_isvalid(addr, &code);
-			break;
-		default:
-			valid = kasan_shadow_Nbyte_isvalid(addr, size, &code);
-			break;
-		}
-	} else {
-		valid = kasan_shadow_Nbyte_isvalid(addr, size, &code);
-	}
-
-	if (__predict_false(!valid)) {
-		kasan_report(addr, size, write, retaddr, code);
-	}
+	return;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Function overwrites to add shadow memory checks */
-
-#ifdef notyet
-void *
-kasan_memcpy(void *dst, const void *src, size_t len)
-{
-	kasan_shadow_check((unsigned long)src, len, false, __RET_ADDR);
-	kasan_shadow_check((unsigned long)dst, len, true, __RET_ADDR);
-	return __builtin_memcpy(dst, src, len);
-}
-
-int
-kasan_memcmp(const void *b1, const void *b2, size_t len)
-{
-	kasan_shadow_check((unsigned long)b1, len, false, __RET_ADDR);
-	kasan_shadow_check((unsigned long)b2, len, false, __RET_ADDR);
-	return __builtin_memcmp(b1, b2, len);
-}
-
-void *
-kasan_memset(void *b, int c, size_t len)
-{
-	kasan_shadow_check((unsigned long)b, len, true, __RET_ADDR);
-	return __builtin_memset(b, c, len);
-}
-
-char *
-kasan_strcpy(char *dst, const char *src)
-{
-	char *save = dst;
-
-	while (1) {
-		kasan_shadow_check((unsigned long)src, 1, false, __RET_ADDR);
-		kasan_shadow_check((unsigned long)dst, 1, true, __RET_ADDR);
-		*dst = *src;
-		if (*src == '\0')
-			break;
-		src++, dst++;
-	}
-
-	return save;
-}
-
-int
-kasan_strcmp(const char *s1, const char *s2)
-{
-	while (1) {
-		kasan_shadow_check((unsigned long)s1, 1, false, __RET_ADDR);
-		kasan_shadow_check((unsigned long)s2, 1, false, __RET_ADDR);
-		if (*s1 != *s2)
-			break;
-		if (*s1 == '\0')
-			return 0;
-		s1++, s2++;
-	}
-
-	return (*(const unsigned char *)s1 - *(const unsigned char *)s2);
-}
-
-size_t
-kasan_strlen(const char *str)
-{
-	const char *s;
-
-	s = str;
-	while (1) {
-		kasan_shadow_check((unsigned long)s, 1, false, __RET_ADDR);
-		if (*s == '\0')
-			break;
-		s++;
-	}
-
-	return (s - str);
-}
-
-#undef kcopy
-#undef copystr
-#undef copyinstr
-#undef copyoutstr
-#undef copyin
-
-int	kasan_kcopy(const void *, void *, size_t);
-int	kasan_copystr(const void *, void *, size_t, size_t *);
-int	kasan_copyinstr(const void *, void *, size_t, size_t *);
-int	kasan_copyoutstr(const void *, void *, size_t, size_t *);
-int	kasan_copyin(const void *, void *, size_t);
-int	kcopy(const void *, void *, size_t);
-int	copystr(const void *, void *, size_t, size_t *);
-int	copyinstr(const void *, void *, size_t, size_t *);
-int	copyoutstr(const void *, void *, size_t, size_t *);
-int	copyin(const void *, void *, size_t);
-
-int
-kasan_kcopy(const void *src, void *dst, size_t len)
-{
-	kasan_shadow_check((unsigned long)src, len, false, __RET_ADDR);
-	kasan_shadow_check((unsigned long)dst, len, true, __RET_ADDR);
-	return kcopy(src, dst, len);
-}
-
-int
-kasan_copystr(const void *kfaddr, void *kdaddr, size_t len, size_t *done)
-{
-	kasan_shadow_check((unsigned long)kdaddr, len, true, __RET_ADDR);
-	return copystr(kfaddr, kdaddr, len, done);
-}
-
-int
-kasan_copyin(const void *uaddr, void *kaddr, size_t len)
-{
-	kasan_shadow_check((unsigned long)kaddr, len, true, __RET_ADDR);
-	return copyin(uaddr, kaddr, len);
-}
-
-int
-kasan_copyinstr(const void *uaddr, void *kaddr, size_t len, size_t *done)
-{
-	kasan_shadow_check((unsigned long)kaddr, len, true, __RET_ADDR);
-	return copyinstr(uaddr, kaddr, len, done);
-}
-
-int
-kasan_copyoutstr(const void *kaddr, void *uaddr, size_t len, size_t *done)
-{
-	kasan_shadow_check((unsigned long)kaddr, len, false, __RET_ADDR);
-	return copyoutstr(kaddr, uaddr, len, done);
-}
-#endif
 
 /* -------------------------------------------------------------------------- */
 /* ASAN ABI functions */
@@ -550,14 +269,7 @@ void __asan_unregister_globals(struct __asan_global *, size_t);
 void
 __asan_register_globals(struct __asan_global *globals, size_t n)
 {
-#ifdef notyet
-	size_t i;
-
-	for (i = 0; i < n; i++) {
-		kasan_mark(globals[i].beg, globals[i].size,
-		    globals[i].size_with_redzone, KASAN_GENERIC_REDZONE);
-	}
-#endif
+	/* never called */
 }
 
 void
@@ -570,22 +282,18 @@ __asan_unregister_globals(struct __asan_global *globals, size_t n)
 	void __asan_load##size(unsigned long);			\
 	void __asan_load##size(unsigned long addr)		\
 	{							\
-		kasan_shadow_check(addr, size, false, __RET_ADDR);\
 	} 							\
 	void __asan_load##size##_noabort(unsigned long);	\
 	void __asan_load##size##_noabort(unsigned long addr)	\
 	{							\
-		kasan_shadow_check(addr, size, false, __RET_ADDR);\
 	}							\
 	void __asan_store##size(unsigned long);			\
 	void __asan_store##size(unsigned long addr)		\
 	{							\
-		kasan_shadow_check(addr, size, true, __RET_ADDR);\
 	}							\
 	void __asan_store##size##_noabort(unsigned long);	\
 	void __asan_store##size##_noabort(unsigned long addr)	\
 	{							\
-		kasan_shadow_check(addr, size, true, __RET_ADDR);\
 	}							\
 
 ASAN_LOAD_STORE(1);
@@ -603,26 +311,26 @@ void __asan_handle_no_return(void);
 void
 __asan_loadN(unsigned long addr, size_t size)
 {
-	kasan_shadow_check(addr, size, false, __RET_ADDR);
+	/* nothing */
 }
 
 void
 __asan_loadN_noabort(unsigned long addr, size_t size)
 {
-	kasan_shadow_check(addr, size, false, __RET_ADDR);
+	/* nothing */
 }
 
 
 void
 __asan_storeN(unsigned long addr, size_t size)
 {
-	kasan_shadow_check(addr, size, true, __RET_ADDR);
+	/* nothing */
 }
 
 void
 __asan_storeN_noabort(unsigned long addr, size_t size)
 {
-	kasan_shadow_check(addr, size, true, __RET_ADDR);
+	/* nothing */
 }
 
 void
@@ -631,23 +339,67 @@ __asan_handle_no_return(void)
 	/* nothing */
 }
 
-#define ASAN_REPORT_LOAD_STORE(size)						\
-	void __asan_report_load##size##_noabort(unsigned long);		\
-	void __asan_report_load##size##_noabort(unsigned long addr)	\
-	{								\
-		kasan_shadow_check(addr, size, false, __RET_ADDR);	\
-	}								\
-	void __asan_report_store##size##_noabort(unsigned long);	\
-	void __asan_report_store##size##_noabort(unsigned long addr)	\
-	{								\
-		kasan_shadow_check(addr, size, true, __RET_ADDR);	\
-	}
+void __asan_report_load1_noabort(unsigned long);
+void __asan_report_load2_noabort(unsigned long);
+void __asan_report_load4_noabort(unsigned long);
+void __asan_report_load8_noabort(unsigned long);
+void __asan_report_load16_noabort(unsigned long);
 
-ASAN_REPORT_LOAD_STORE(1);
-ASAN_REPORT_LOAD_STORE(2);
-ASAN_REPORT_LOAD_STORE(4);
-ASAN_REPORT_LOAD_STORE(8);
-ASAN_REPORT_LOAD_STORE(16);
+void __asan_report_load1_noabort(unsigned long addr)
+{
+	/* nothing */
+}
+
+void __asan_report_load2_noabort(unsigned long addr)
+{
+	/* nothing */
+}
+
+void __asan_report_load4_noabort(unsigned long addr)
+{
+	/* nothing */
+}
+
+void __asan_report_load8_noabort(unsigned long addr)
+{
+	/* nothing */
+}
+
+void __asan_report_load16_noabort(unsigned long addr)
+{
+	/* nothing */
+}
+
+void __asan_report_store1_noabort(unsigned long);
+void __asan_report_store2_noabort(unsigned long);
+void __asan_report_store4_noabort(unsigned long);
+void __asan_report_store8_noabort(unsigned long);
+void __asan_report_store16_noabort(unsigned long);
+
+void __asan_report_store1_noabort(unsigned long addr)
+{
+	/* nothing */
+}
+
+void __asan_report_store2_noabort(unsigned long addr)
+{
+	/* nothing */
+}
+
+void __asan_report_store4_noabort(unsigned long addr)
+{
+	/* nothing */
+}
+
+void __asan_report_store8_noabort(unsigned long addr)
+{
+	/* nothing */
+}
+
+void __asan_report_store16_noabort(unsigned long addr)
+{
+	/* nothing */
+}
 
 void __asan_report_load_n_noabort(unsigned long, size_t);
 void __asan_report_store_n_noabort(unsigned long, size_t);
@@ -655,40 +407,62 @@ void __asan_report_store_n_noabort(unsigned long, size_t);
 void
 __asan_report_load_n_noabort(unsigned long addr, size_t size)
 {
-	kasan_shadow_check(addr, size, false, __RET_ADDR);
+	//kasan_shadow_check(addr, size, false, __RET_ADDR);
 }
 
 void
 __asan_report_store_n_noabort(unsigned long addr, size_t size)
 {
-	kasan_shadow_check(addr, size, true, __RET_ADDR);
+	//kasan_shadow_check(addr, size, true, __RET_ADDR);
 }
 
-#define ASAN_SET_SHADOW(byte) \
-	void __asan_set_shadow_##byte(void *, size_t);			\
-	void __asan_set_shadow_##byte(void *addr, size_t size)		\
-	{								\
-		__builtin_memset((void *)addr, 0x##byte, size);		\
-	}
+void __asan_set_shadow_00(void *, size_t);
+void __asan_set_shadow_f1(void *, size_t);
+void __asan_set_shadow_f2(void *, size_t);
+void __asan_set_shadow_f3(void *, size_t);
+void __asan_set_shadow_f5(void *, size_t);
+void __asan_set_shadow_f8(void *, size_t);
 
-ASAN_SET_SHADOW(00);
-ASAN_SET_SHADOW(f1);
-ASAN_SET_SHADOW(f2);
-ASAN_SET_SHADOW(f3);
-ASAN_SET_SHADOW(f5);
-ASAN_SET_SHADOW(f8);
+void __asan_set_shadow_00(void *addr, size_t size)
+{
+	/* nothing */
+}
+
+void __asan_set_shadow_f1(void *addr, size_t size)
+{
+	/* nothing */
+}
+
+void __asan_set_shadow_f2(void *addr, size_t size)
+{
+	/* nothing */
+}
+
+void __asan_set_shadow_f3(void *addr, size_t size)
+{
+	/* nothing */
+}
+
+void __asan_set_shadow_f5(void *addr, size_t size)
+{
+	/* nothing */
+}
+
+void __asan_set_shadow_f8(void *addr, size_t size)
+{
+	/* nothing */
+}
 
 void __asan_poison_stack_memory(const void *, size_t);
 void __asan_unpoison_stack_memory(const void *, size_t);
 
 void __asan_poison_stack_memory(const void *addr, size_t size)
 {
-	size = roundup(size, KASAN_SHADOW_SCALE_SIZE);
-	kasan_shadow_Nbyte_fill(addr, size, KASAN_USE_AFTER_SCOPE);
+	/* nothing */
 }
 
 void __asan_unpoison_stack_memory(const void *addr, size_t size)
 {
-	kasan_shadow_Nbyte_markvalid(addr, size);
+	/* nothing */
 }
 
