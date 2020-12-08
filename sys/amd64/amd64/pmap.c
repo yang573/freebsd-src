@@ -7931,8 +7931,6 @@ pmap_mapdev_internal(vm_paddr_t pa, vm_size_t size, int mode, int flags)
 	if ((flags & MAPDEV_FLUSHCACHE) != 0)
 		pmap_invalidate_cache_range(va, va + tmpsize);
 
-	kasan_mark((const void *)(va + offset), size, size, 0);
-
 	return ((void *)(va + offset));
 }
 

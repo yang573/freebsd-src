@@ -37,7 +37,6 @@ __FBSDID("$FreeBSD$");
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/acct.h>
-#include <sys/asan.h>
 #include <sys/capsicum.h>
 #include <sys/eventhandler.h>
 #include <sys/exec.h>
@@ -1380,8 +1379,6 @@ exec_alloc_args_kva(void **cookie)
 		mtx_unlock(&exec_args_kva_mtx);
 	}
 	*(struct exec_args_kva **)cookie = argkva;
-	kasan_mark((const void *)argkva->addr, exec_map_entry_size,
-		exec_map_entry_size, 0);
 	return (argkva->addr);
 }
 
