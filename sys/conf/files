@@ -3811,7 +3811,8 @@ kern/init_main.c		standard
 kern/init_sysent.c		standard
 kern/ksched.c			optional _kposix_priority_scheduling
 kern/kern_acct.c		standard
-kern/kern_alq.c			optional alq
+kern/kern_alq.c			optional alq \
+	compile-with "${CC} -c ${CFLAGS:N-fsanitize=kernel-address} ${WERROR} ${PROF} ${.IMPSRC}"
 kern/kern_clock.c		standard
 kern/kern_condvar.c		standard
 kern/kern_conf.c		standard
@@ -3836,7 +3837,8 @@ kern/kern_intr.c		standard
 kern/kern_jail.c		standard
 kern/kern_khelp.c		standard
 kern/kern_kthread.c		standard
-kern/kern_ktr.c			optional ktr
+kern/kern_ktr.c			optional ktr \
+	compile-with "${CC} -c ${CFLAGS:N-fsanitize=kernel-address} ${WERROR} ${PROF} ${.IMPSRC}"
 kern/kern_ktrace.c		standard
 kern/kern_linker.c		standard
 kern/kern_lock.c		standard
@@ -3849,6 +3851,7 @@ kern/kern_mib.c			standard
 kern/kern_module.c		standard
 kern/kern_mtxpool.c		standard
 kern/kern_mutex.c		standard
+kern/kern_ktrace.c		standard
 kern/kern_ntptime.c		standard
 kern/kern_osd.c			standard
 kern/kern_physio.c		standard
@@ -3923,7 +3926,8 @@ kern/subr_hints.c		standard
 kern/subr_inflate.c		optional gzip
 kern/subr_kdb.c			standard
 kern/subr_kobj.c		standard
-kern/subr_lock.c		standard
+kern/subr_lock.c		standard \
+	compile-with "${CC} -c ${CFLAGS:N-fsanitize=kernel-address} ${WERROR} ${PROF} ${.IMPSRC}"
 kern/subr_log.c			standard
 kern/subr_mchain.c		optional libmchain
 kern/subr_module.c		standard
@@ -3951,7 +3955,8 @@ kern/subr_turnstile.c		standard
 kern/subr_uio.c			standard
 kern/subr_unit.c		standard
 kern/subr_vmem.c		standard
-kern/subr_witness.c		optional witness
+kern/subr_witness.c		optional witness \
+	compile-with "${CC} -c ${CFLAGS:N-fsanitize=kernel-address} ${WERROR} ${PROF} ${.IMPSRC}"
 kern/sys_capability.c		standard
 kern/sys_generic.c		standard
 kern/sys_getrandom.c		standard
