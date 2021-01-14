@@ -386,7 +386,8 @@ u_int64_t		KPDPphys;	/* phys addr of kernel level 3 */
 u_int64_t		KPML4phys;	/* phys addr of kernel level 4 */
 
 #ifdef KASAN
-static u_int64_t	KASANPTphys;	/* phys addr of kasan level 1 */
+int nkasanpt;		/* Number of kasan shadow map page tables */
+u_int64_t			KASANPTphys;	/* phys addr of kasan level 1 */
 u_int64_t			KASANPDphys;	/* phys addr of kasan level 2 */
 static u_int64_t	KASANPDPphys;	/* phys addr of kasan level 3 */
 #endif
@@ -1437,7 +1438,7 @@ create_pagetables(vm_paddr_t *firstaddr)
 {
 	int i, j, ndm1g, nkpdpe, nkdmpde;
 #ifdef KASAN
-	int nkasanpdp, nkasanpd, nkasanpt;
+	int nkasanpdp, nkasanpd;
 #endif
 	pd_entry_t *pd_p;
 	pdp_entry_t *pdp_p;
@@ -1513,6 +1514,9 @@ create_pagetables(vm_paddr_t *firstaddr)
 	KASANPDPphys = allocpages(firstaddr, nkasanpdp);
 	KASANPDphys = allocpages(firstaddr, nkasanpd);
 	KASANPTphys = allocpages(firstaddr, nkasanpt);
+
+//	vm_paddr_t kasan_pa = allocpages(firstaddr, 1);
+//	kasan_early_init(kasan_pa);
 #endif
 
 	/*
@@ -1692,12 +1696,17 @@ pmap_bootstrap(vm_paddr_t *firstaddr)
 		cr4 |= CR4_SMAP;
 	load_cr4(cr4);
 
+//	vm_paddr_t kasan_pa = allocpages(firstaddr, 1);
+	kasan_early_init();
+
 	/*
 	 * Initialize the kernel pmap (which is statically allocated).
 	 * Count bootstrap data as being resident in case any of this data is
 	 * later unmapped (using pmap_remove()) and freed.
 	 */
 	PMAP_LOCK_INIT(kernel_pmap);
+	//mtx_init(&(kernel_pmap)->pm_mtx, , NULL, MTX_DEF | MTX_DUPOK);
+	//_mtx_init(&(&(kernel_pmap)->pm_mtx)->mtx_lock, "pmap", NULL, MTX_DEF | MTX_DUPOK);
 	kernel_pmap->pm_pml4 = (pdp_entry_t *)PHYS_TO_DMAP(KPML4phys);
 	kernel_pmap->pm_cr3 = KPML4phys;
 	kernel_pmap->pm_ucr3 = PMAP_NO_CR3;

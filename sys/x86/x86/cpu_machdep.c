@@ -268,7 +268,7 @@ cpu_halt(void)
 		halt();
 }
 
-static void
+void
 cpu_reset_real(void)
 {
 	struct region_descriptor null_idt;

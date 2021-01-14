@@ -158,8 +158,8 @@
  * 0xffff800000000000 - 0xffff804020100fff   recursive page table (512GB slot)
  * 0xffff804020100fff - 0xffff807fffffffff   unused
  * 0xffff808000000000 - 0xffff847fffffffff   large map (can be tuned up)
- * 0xffff848000000000 - 0xfffff77fffffffff   unused (large map extends there)
- * 0xffff780000000000 - 0xfffff7ffffffffff   kasan shadow map
+ * 0xffff848000000000 - 0xfffff7ffffffffff   unused (large map extends there)
+ * 0xfffff78000000000 - 0xfffff7ffffffffff   kasan shadow map
  * 0xfffff80000000000 - 0xfffffbffffffffff   4TB direct map
  * 0xfffffc0000000000 - 0xfffffdffffffffff   unused
  * 0xfffffe0000000000 - 0xffffffffffffffff   2TB kernel map

@@ -54,7 +54,7 @@
 
 #ifdef KASAN
 void kasan_shadow_map(void *, size_t);
-void kasan_early_init(void *);
+void kasan_early_init(void);
 void kasan_init(void);
 
 void kasan_add_redzone(size_t *);

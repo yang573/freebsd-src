@@ -122,8 +122,9 @@ kasan_shadow_map(void *addr, size_t size)
 }
 
 void
-kasan_early_init(void *stack)
+kasan_early_init(void)
 {
+	kasan_md_early_init();
 	return;
 }
 

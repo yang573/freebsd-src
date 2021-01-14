@@ -43,6 +43,15 @@
 #include <vm/vm_page.h>
 #include <machine/vmparam.h>
 
+//static bool __md_early __read_mostly = true;
+//static uint8_t __md_earlypages[8 * PAGE_SIZE] __aligned(PAGE_SIZE);
+//static size_t __md_earlytaken = 0;
+static uint8_t __md_earlypage[PAGE_SIZE] __aligned(PAGE_SIZE);
+
+extern int nkasanpt;		/* Number of kasan shadow map page tables */
+extern u_int64_t KASANPTphys;	/* phys addr of kasan level 1 */
+extern u_int64_t KASANPDphys;	/* phys addr of kasan level 2 */
+
 static inline int8_t *
 kasan_md_addr_to_shad(const void *addr)
 {
@@ -63,13 +72,30 @@ kasan_md_unsupported(vm_offset_t addr)
 	    (addr >= VM_MAX_KERNEL_ADDRESS));
 }
 
+// Map only the current stack with zero pages?
 static inline void
-kasan_md_init(void)
+kasan_md_early_init(void)
 {
+	vm_paddr_t pa = (vm_paddr_t)(&__md_earlypage[0]);
+	pa -= KERNBASE;
+
+	pt_entry_t *pt_p = (pt_entry_t *)KASANPTphys;
+	for (int i = 0; i < nkasanpt; i++)
+		pt_p[i] = pa | X86_PG_V;
+
+	//__md_early = false;
+
 	return;
 }
 
-extern u_int64_t KASANPDphys;
+static inline void
+kasan_md_init(void)
+{
+	// XXX: Is this needed, or does pmap_growkernel() call map for us?
+	//kasan_shadow_map();
+
+	return;
+}
 
 static inline void
 kasan_md_shadow_map_page(vm_offset_t va)
@@ -101,7 +127,7 @@ kasan_md_shadow_map_page(vm_offset_t va)
 	idx = pmap_pte_index(va);
 	//printf("DEBUG: %s() pte: %p idx: %d pte[idx] 0x%lx\n", __func__, pte, idx, pte[idx]);
 	if (pte[idx] != 0) {
-		printf("DEBUG: %s() pte: %p idx: %d pte[idx] 0x%lx\n", __func__, pte, idx, pte[idx]);
+		//printf("DEBUG: %s() pte: %p idx: %d pte[idx] 0x%lx\n", __func__, pte, idx, pte[idx]);
 		return;
 	}
 
