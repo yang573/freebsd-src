@@ -80,8 +80,10 @@ kasan_md_early_init(void)
 	pa -= KERNBASE;
 
 	pt_entry_t *pt_p = (pt_entry_t *)PHYS_TO_DMAP(KASANPTphys);
-	for (int i = 0; i < nkasanpt; i++)
+	for (int i = 0; i < nkasanpt * NPTEPG; i++)
 		pt_p[i] = pa | X86_PG_V;
+
+	invlpg((unsigned long)pt_p);
 
 	//__md_early = false;
 
