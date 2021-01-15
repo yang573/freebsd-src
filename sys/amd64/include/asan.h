@@ -79,7 +79,7 @@ kasan_md_early_init(void)
 	vm_paddr_t pa = (vm_paddr_t)(&__md_earlypage[0]);
 	pa -= KERNBASE;
 
-	pt_entry_t *pt_p = (pt_entry_t *)KASANPTphys;
+	pt_entry_t *pt_p = (pt_entry_t *)PHYS_TO_DMAP(KASANPTphys);
 	for (int i = 0; i < nkasanpt; i++)
 		pt_p[i] = pa | X86_PG_V;
 
