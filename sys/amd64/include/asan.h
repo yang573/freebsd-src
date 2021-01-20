@@ -83,7 +83,7 @@ kasan_md_early_init(void)
 	for (int i = 0; i < nkasanpt * NPTEPG; i++)
 		pt_p[i] = pa | X86_PG_V;
 
-	invlpg((unsigned long)pt_p);
+	invltlb();
 
 	//__md_early = false;
 

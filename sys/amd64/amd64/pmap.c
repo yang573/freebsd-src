@@ -1514,9 +1514,6 @@ create_pagetables(vm_paddr_t *firstaddr)
 	KASANPDPphys = allocpages(firstaddr, nkasanpdp);
 	KASANPDphys = allocpages(firstaddr, nkasanpd);
 	KASANPTphys = allocpages(firstaddr, nkasanpt);
-
-//	vm_paddr_t kasan_pa = allocpages(firstaddr, 1);
-//	kasan_early_init(kasan_pa);
 #endif
 
 	/*
@@ -1532,7 +1529,7 @@ create_pagetables(vm_paddr_t *firstaddr)
 	/* same for KASAN */
 	kasan_pd_p = (pd_entry_t *)KASANPDphys;
 	for (i = 0; i < nkasanpt; i++)
-		kasan_pd_p[i + 0x1ff80] = (KASANPTphys + ptoa(i)) | X86_PG_RW | X86_PG_V;
+		kasan_pd_p[i] = (KASANPTphys + ptoa(i)) | X86_PG_RW | X86_PG_V;
 
 	memset_std((void *)KASANPTphys, 0, nkasanpt * PAGE_SIZE);
 #endif
@@ -1696,7 +1693,6 @@ pmap_bootstrap(vm_paddr_t *firstaddr)
 		cr4 |= CR4_SMAP;
 	load_cr4(cr4);
 
-//	vm_paddr_t kasan_pa = allocpages(firstaddr, 1);
 	kasan_early_init();
 
 	/*
