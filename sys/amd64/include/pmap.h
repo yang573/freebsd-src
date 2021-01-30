@@ -194,9 +194,11 @@
 
 /* NKASANPML4E is the number of PML4 page entries. It is NKPML4E / 8 because
  * KASAN needs 1 byte of memory for every 8 bytes of Kernel Memory.
+ *
+ * Yang: KASAN now covers both the direct map and the kernel virtual space
  */
 
-#define NKASANPML4E	1
+#define NKASANPML4E	2
 #define KASAN_SHADOW_SCALE_SHIFT	3
 
 /*

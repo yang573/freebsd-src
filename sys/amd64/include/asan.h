@@ -49,6 +49,7 @@
 static uint8_t __md_earlypage[PAGE_SIZE] __aligned(PAGE_SIZE);
 
 extern int nkasanpt;		/* Number of kasan shadow map page tables */
+extern int ndmkasanpt;		/* Number of kasan shadow map page tables for the direct map */
 extern u_int64_t KASANPTphys;	/* phys addr of kasan level 1 */
 extern u_int64_t KASANPDphys;	/* phys addr of kasan level 2 */
 
@@ -76,11 +77,21 @@ kasan_md_unsupported(vm_offset_t addr)
 static inline void
 kasan_md_early_init(void)
 {
-	vm_paddr_t pa = (vm_paddr_t)(&__md_earlypage[0]);
+	int i;
+	pt_entry_t *pt_p;
+	vm_paddr_t pa;
+
+	pa = (vm_paddr_t)(&__md_earlypage[0]);
 	pa -= KERNBASE;
 
-	pt_entry_t *pt_p = (pt_entry_t *)PHYS_TO_DMAP(KASANPTphys);
-	for (int i = 0; i < nkasanpt * NPTEPG; i++)
+	// direct map KASAN PT
+	pt_p = (pt_entry_t *)PHYS_TO_DMAP(KASANPTphys);
+	for (i = 0; i < ndmkasanpt * NPTEPG; i++)
+		pt_p[i] = pa | X86_PG_V;
+
+	// kernel address space KASAN PT
+	pt_p = (pt_entry_t *)PHYS_TO_DMAP(KASANPTphys) + ptoa(ndmkasanpt);
+	for (i = 0; i < nkasanpt * NPTEPG; i++)
 		pt_p[i] = pa | X86_PG_V;
 
 	invltlb();
