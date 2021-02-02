@@ -387,7 +387,6 @@ u_int64_t		KPML4phys;	/* phys addr of kernel level 4 */
 
 #ifdef KASAN
 int nkasanpt;		/* Number of kasan shadow map page tables */
-int ndmkasanpt;		/* Number of kasan shadow map page tables for the direct map */
 u_int64_t			KASANPTphys;	/* phys addr of kasan level 1 */
 u_int64_t			KASANPDphys;	/* phys addr of kasan level 2 */
 static u_int64_t	KASANPDPphys;	/* phys addr of kasan level 3 */
@@ -1439,7 +1438,7 @@ create_pagetables(vm_paddr_t *firstaddr)
 {
 	int i, j, ndm1g, nkpdpe, nkdmpde;
 #ifdef KASAN
-	int nkasanpdp, nkasanpd, ndmkasanpd;
+	int nkasanpdp, nkasanpd;
 #endif
 	pd_entry_t *pd_p;
 	pdp_entry_t *pdp_p;
@@ -1510,22 +1509,15 @@ create_pagetables(vm_paddr_t *firstaddr)
 	nkasanpdp = NKASANPML4E; //PDP
 
 	// kernel address space PD
-	nkasanpd = (nkpdpe + 7) >> KASAN_SHADOW_SCALE_SHIFT;
-	// direct map PD
-	ndmkasanpd = (ndmpdp + 7) >> KASAN_SHADOW_SCALE_SHIFT;
+	nkasanpd = 2;
 
 	// kernel address space PT
-	nkasanpt = (nkpt + 7) >> KASAN_SHADOW_SCALE_SHIFT;
-	// direct map PT
-	ndmkasanpt = 0;
-	if (ndm1g)
-		ndmkasanpt += (nkdmpde + 7) >> KASAN_SHADOW_SCALE_SHIFT;
-	if (ndm1g < ndmpdp)
-		ndmkasanpt += ((ndmpdp - ndm1g) << 30) / PAGE_SIZE;
+	//nkasanpt = (nkpt + 7) >> KASAN_SHADOW_SCALE_SHIFT;
+	nkasanpt = 1024;
 
 	KASANPDPphys = allocpages(firstaddr, nkasanpdp);
-	KASANPDphys = allocpages(firstaddr, nkasanpd + ndmkasanpd);
-	KASANPTphys = allocpages(firstaddr, nkasanpt + ndmkasanpt);
+	KASANPDphys = allocpages(firstaddr, nkasanpd);
+	KASANPTphys = allocpages(firstaddr, nkasanpt);
 #endif
 
 	/*
@@ -1539,18 +1531,11 @@ create_pagetables(vm_paddr_t *firstaddr)
 
 #ifdef KASAN
 	/* same for KASAN */
-
-	// direct map PT to PD mapping
 	kasan_pd_p = (pd_entry_t *)KASANPDphys;
-	for (i = 0; i < ndmkasanpt; i++)
+	for (i = 0; i < nkasanpt; i++)
 		kasan_pd_p[i] = (KASANPTphys + ptoa(i)) | X86_PG_RW | X86_PG_V;
 
-	// kernel address space PT to PD
-	kasan_pd_p = (pd_entry_t *)KASANPDphys + ptoa(ndmkasanpd);
-	for (i = 0; i < nkasanpt; i++)
-		kasan_pd_p[i] = (KASANPTphys + ptoa(i + ndmkasanpt)) | X86_PG_RW | X86_PG_V;
-
-	memset_std((void *)KASANPTphys, 0, (nkasanpt + ndmkasanpt) * PAGE_SIZE);
+	memset_std((void *)KASANPTphys, 0, (nkasanpt) * PAGE_SIZE);
 #endif
 
 	/*
@@ -1578,22 +1563,10 @@ create_pagetables(vm_paddr_t *firstaddr)
 
 #ifdef KASAN
 	/* same for KASAN */
-
 	/* Check if KPML4I - KPML4BASE should be changed. Also KPDPI */
-
-	// direct map PD to PDP mapping
 	kasan_pdp_p = (pdp_entry_t *)(KASANPDPphys);
-	for (i = 0; i < ndmkasanpd; i++)
-		kasan_pdp_p[i] = (KASANPDphys + ptoa(i)) | X86_PG_RW | X86_PG_V;
-
-	// kernel address space PD to PDP mapping
-	// Yang: Assumes NKASANPML4E == 2, with one page
-	// reserved for direct map, one for kernel space
-	// At some point, NKASANPML4E should be split between
-	// kernel space and direct map shadow map
-	kasan_pdp_p = (pdp_entry_t *)(KASANPDPphys) + ptoa(1);
 	for (i = 0; i < nkasanpd; i++)
-		kasan_pdp_p[i] = (KASANPDphys + ptoa(i + ndmkasanpd)) | X86_PG_RW | X86_PG_V;
+		kasan_pdp_p[i] = (KASANPDphys + ptoa(i)) | X86_PG_RW | X86_PG_V;
 #endif
 
 	/*
@@ -1658,7 +1631,6 @@ create_pagetables(vm_paddr_t *firstaddr)
 
 #ifdef KASAN
 	/* Connect KASAN slots up to PML4 */
-	// direct map PDP and kernel space PDP
 	for (i = 0; i < NKASANPML4E; i++) {
 		p4_p[KASANPML4I + i] = KASANPDPphys + ptoa(i);
 		p4_p[KASANPML4I + i] |= X86_PG_RW | X86_PG_V;
