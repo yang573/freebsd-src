@@ -198,7 +198,7 @@
  * Yang: KASAN now covers both the direct map and the kernel virtual space
  */
 
-#define NKASANPML4E	1
+#define NKASANPML4E	2
 #define KASAN_SHADOW_SCALE_SHIFT	3
 
 /*
