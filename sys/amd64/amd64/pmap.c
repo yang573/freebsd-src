@@ -1512,16 +1512,12 @@ create_pagetables(vm_paddr_t *firstaddr)
 	// kernel address space PD
 	nkasanpd = (nkpdpe + 7) >> KASAN_SHADOW_SCALE_SHIFT;
 	// direct map PD
-	ndmkasanpd = (ndmpdp + 7) >> KASAN_SHADOW_SCALE_SHIFT;
+	ndmkasanpd = 2;
 
 	// kernel address space PT
 	nkasanpt = (nkpt + 7) >> KASAN_SHADOW_SCALE_SHIFT;
 	// direct map PT
-	ndmkasanpt = 0;
-	if (ndm1g)
-		ndmkasanpt += (nkdmpde + 7) >> KASAN_SHADOW_SCALE_SHIFT;
-	if (ndm1g < ndmpdp)
-		ndmkasanpt += ((ndmpdp - ndm1g) << 30) / PAGE_SIZE;
+	ndmkasanpt = 1024;
 
 	KASANPDPphys = allocpages(firstaddr, nkasanpdp);
 	KASANPDphys = allocpages(firstaddr, nkasanpd + ndmkasanpd);
