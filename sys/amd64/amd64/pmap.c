@@ -1515,7 +1515,10 @@ create_pagetables(vm_paddr_t *firstaddr)
 	ndmkasanpd = 2;
 
 	// kernel address space PT
-	nkasanpt = (nkpt + 7) >> KASAN_SHADOW_SCALE_SHIFT;
+	//nkasanpt = (nkpt + 7) >> KASAN_SHADOW_SCALE_SHIFT;
+	// Yang: just map the entire PD
+	// most PTE will be zero pages anyways, so we only have extra PTs
+	nkasanpt = nkasanpd * NPDEPG;
 	// direct map PT
 	ndmkasanpt = 1024;
 
@@ -1542,7 +1545,7 @@ create_pagetables(vm_paddr_t *firstaddr)
 		kasan_pd_p[i] = (KASANPTphys + ptoa(i)) | X86_PG_RW | X86_PG_V;
 
 	// kernel address space PT to PD
-	kasan_pd_p = (pd_entry_t *)KASANPDphys + ptoa(ndmkasanpd);
+	kasan_pd_p = (pd_entry_t *)KASANPDphys + (ndmkasanpd * NPDEPG);
 	for (i = 0; i < nkasanpt; i++)
 		kasan_pd_p[i] = (KASANPTphys + ptoa(i + ndmkasanpt)) | X86_PG_RW | X86_PG_V;
 
@@ -1587,9 +1590,14 @@ create_pagetables(vm_paddr_t *firstaddr)
 	// reserved for direct map, one for kernel space
 	// At some point, NKASANPML4E should be split between
 	// kernel space and direct map shadow map
-	kasan_pdp_p = (pdp_entry_t *)(KASANPDPphys) + ptoa(1);
+	kasan_pdp_p = (pdp_entry_t *)(KASANPDPphys) + (1 * NPDPEPG);
 	for (i = 0; i < nkasanpd; i++)
-		kasan_pdp_p[i] = (KASANPDphys + ptoa(i + ndmkasanpd)) | X86_PG_RW | X86_PG_V;
+		// map last PD entry in PD
+		// 0x1000 PD entries between DMAP_MIN_ADDRESS and VM_MIN_KERNEL_ADDRESS
+		// 0xff8 PD entries between VM_MIN_KERNEL_ADDRESS and KERNBASE
+		// 511 * 8 == 4088 == 0xff8
+		// 511 == 1ff
+		kasan_pdp_p[i + NPDPEPG - nkasanpd] = (KASANPDphys + ptoa(i + ndmkasanpd)) | X86_PG_RW | X86_PG_V;
 #endif
 
 	/*

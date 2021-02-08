@@ -90,7 +90,7 @@ kasan_md_early_init(void)
 		pt_p[i] = pa | X86_PG_V;
 
 	// kernel address space KASAN PT
-	pt_p = (pt_entry_t *)PHYS_TO_DMAP(KASANPTphys) + ptoa(ndmkasanpt);
+	pt_p = (pt_entry_t *)PHYS_TO_DMAP(KASANPTphys) + (ndmkasanpt * NPTEPG);
 	for (i = 0; i < nkasanpt * NPTEPG; i++)
 		pt_p[i] = pa | X86_PG_V;
 
